@@ -2,6 +2,8 @@
 
 Este é um projeto full-stack de uma **Vitrine Digital** com um **Painel Administrativo** integrado. O objetivo é permitir que lojistas cadastrem produtos, gerenciem estoque e compartilhem um link personalizado para que clientes façam pedidos via WhatsApp.
 
+![Demonstração do Projeto](app-lojista.gif)
+
 ## 🚀 Funcionalidades
 
 ### 🛒 Para o Cliente (Vitrine)
