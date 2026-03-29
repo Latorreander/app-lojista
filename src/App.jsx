@@ -175,15 +175,11 @@ function App() {
     }
 
     // ==========================================
-    // 4. FILTROS E RENDER (LÓGICA CORRIGIDA AQUI)
+    // 4. FILTROS E RENDER
     // ==========================================
     const produtosFiltrados = produtos.filter(p => {
         const termo = busca.toLowerCase().trim();
-        
-        // Se a busca estiver vazia, mostramos todos os produtos normalmente
         if (!termo) return true;
-
-        // Se houver busca, filtramos rigorosamente por Nome ou REF
         const referencia = p.id.toString().slice(-6).toUpperCase();
         return p.nome.toLowerCase().includes(termo) || referencia.includes(termo.toUpperCase());
     });
@@ -260,14 +256,13 @@ function App() {
                                 <button className="btn btn-primary w-100 fw-bold" type="submit" disabled={salvandoProduto}>
                                     {salvandoProduto ? <span className="spinner-border spinner-border-sm"></span> : (idEditando ? "SALVAR ALTERAÇÕES" : "CADASTRAR")}
                                 </button>
-                                {idEditando && <button className="btn btn-link btn-sm w-100 text-muted" onClick={() => {setIdEditando(null); setNome(""); setPreco(""); setEstoque("");}}>Cancelar Edição</button>}
+                                {idEditando && <button className="btn btn-link btn-sm w-100 text-muted" onClick={() => {setIdEditando(null); setNome(""); setPreco(""); setEstoque(""); setDescricao("");}}>Cancelar Edição</button>}
                             </form>
                         </div>
                     </div>
 
                     {/* LISTAGEM */}
                     <div className="col-md-8">
-                        {/* Configurações de Perfil Rápida */}
                         <div className="card p-3 mb-4 shadow-sm border-0">
                             {editandoLoja ? (
                                 <div className="row g-2">
@@ -295,13 +290,19 @@ function App() {
                                         {produtosPaginados.map(p => (
                                             <tr key={p.id}>
                                                 <td>
-                                                    <img src={p.imagem || "https://via.placeholder.com/40"} width="40" height="40" className="rounded shadow-sm" style={{objectFit: 'cover'}} /></td>
-                                                    <td className="text-start">
+                                                    <img src={p.imagem || "https://via.placeholder.com/40"} width="40" height="40" className="rounded shadow-sm" style={{objectFit: 'cover'}} />
+                                                </td>
+                                                <td className="text-start">
                                                     <div className="fw-bold">{p.nome}</div>
                                                     <small className="text-muted" style={{ fontSize: '0.7rem' }}>
                                                         REF: {p.id.toString().slice(-6).toUpperCase()}
                                                     </small>
                                                 </td>
+                                                {/* COLUNA PREÇO - CORRIGIDO */}
+                                                <td>
+                                                    <div className="fw-bold text-dark">{formatarMoeda(p.preco)}</div>
+                                                </td>
+                                                {/* COLUNA QUANTIDADE (ESTOQUE) - CORRIGIDO */}
                                                 <td>
                                                     <span style={{ 
                                                         display: 'inline-block',
@@ -317,16 +318,17 @@ function App() {
                                                         {p.estoque <= 0 ? 'esgotado' : `${p.estoque} un`}
                                                     </span>
                                                 </td>
+                                                {/* COLUNA AÇÕES - CORRIGIDO */}
                                                 <td>
                                                     <div className="d-flex gap-1 justify-content-center">
-                                                        <button className="btn btn-sm btn-info text-white d-flex align-items-center justify-content-center" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoDetalhado(p); setExibirModalDetalhes(true);}}>ℹ️</button>
-                                                        <button className="btn btn-sm btn-success d-flex align-items-center justify-content-center" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaVender(p); setExibirModalVenda(true);}} disabled={p.estoque <= 0}>$</button>
-                                                        <button className="btn btn-sm btn-warning d-flex align-items-center justify-content-center" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaEstornar(p); setExibirModalEstorno(true);}}>🔄</button>
-                                                        <button className="btn btn-sm btn-light border d-flex align-items-center justify-content-center" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {
+                                                        <button className="btn btn-sm btn-info text-white d-flex align-items-center justify-content-center" title="Informação" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoDetalhado(p); setExibirModalDetalhes(true);}}>ℹ️</button>
+                                                        <button className="btn btn-sm btn-success d-flex align-items-center justify-content-center" title="Vender" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaVender(p); setExibirModalVenda(true);}} disabled={p.estoque <= 0}>💲</button>
+                                                        <button className="btn btn-sm btn-warning d-flex align-items-center justify-content-center" title="Estornar" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaEstornar(p); setExibirModalEstorno(true);}}>🔄</button>
+                                                        <button className="btn btn-sm btn-light border d-flex align-items-center justify-content-center" title="Editar" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {
                                                             setIdEditando(p.id); setNome(p.nome); setDescricao(p.descricao);
                                                             setPreco(p.preco); setEstoque(p.estoque); window.scrollTo(0,0);
                                                         }}>✏️</button>
-                                                        <button className="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaExcluir(p); setExibirModalExcluir(true);}}>🗑️</button>
+                                                        <button className="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center" title="Excluir" style={{width: '30px', height: '30px', padding: 0}} onClick={() => {setProdutoParaExcluir(p); setExibirModalExcluir(true);}}>🗑️</button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -349,12 +351,12 @@ function App() {
                 </div>
             </div>
 
-            {/* MODAIS */}
+            {/* MODAIS (MANTIDOS SEM ALTERAÇÃO) */}
             {exibirModalVenda && (
                 <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:2000}}>
                     <div className="modal-dialog modal-sm modal-dialog-centered text-center">
                         <div className="modal-content p-4 shadow-lg border-0">
-                            <h6 className="fw-bold">Baixar Estoque</h6>
+                            <h6 className="fw-bold">Dar baixa de {quantidadeVenda} Produto(s)?</h6>
                             <input type="number" className="form-control text-center mb-3" value={quantidadeVenda} onChange={e => setQuantidadeVenda(e.target.value)} />
                             <div className="d-flex gap-2">
                                 <button className="btn btn-light w-100" onClick={() => setExibirModalVenda(false)}>Sair</button>
@@ -369,7 +371,7 @@ function App() {
                 <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:2000}}>
                     <div className="modal-dialog modal-sm modal-dialog-centered text-center">
                         <div className="modal-content p-4 shadow-lg border-0">
-                            <h6 className="fw-bold text-warning">Estornar Produto</h6>
+                            <h6 className="fw-bold text-warning">Estornar Produto?</h6>
                             <input type="number" className="form-control text-center mb-3 border-warning" value={quantidadeEstorno} onChange={e => setQuantidadeEstorno(e.target.value)} />
                             <div className="d-flex gap-2">
                                 <button className="btn btn-light w-100" onClick={() => setExibirModalEstorno(false)}>Sair</button>
@@ -384,7 +386,7 @@ function App() {
                 <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:2000}}>
                     <div className="modal-dialog modal-sm modal-dialog-centered text-center">
                         <div className="modal-content p-4 shadow-lg border-0">
-                            <h6 className="fw-bold text-danger">Excluir {produtoParaExcluir?.nome}?</h6>
+                            <h6 className="fw-bold text-danger">Excluir Produto {produtoParaExcluir?.nome}?</h6>
                             <div className="d-flex gap-2">
                                 <button className="btn btn-light w-100" onClick={() => setExibirModalExcluir(false)}>Não</button>
                                 <button className="btn btn-danger w-100" onClick={excluirProduto}>Sim, Excluir</button>
