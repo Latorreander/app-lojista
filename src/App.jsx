@@ -80,20 +80,44 @@ function App() {
     }, []);
 
     const carregarDadosPainel = useCallback(async () => {
-        if (!session) return;
-        const { data: p } = await supabase.from("produtos").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
-        const { data: l } = await supabase.from("lojas").select("*").eq("user_id", session.user.id).maybeSingle();
-        if (p) setProdutos(p);
-        if (l) setDadosLoja(l);
+    if (!session) return;
+    
+    // Busca produtos e dados da loja
+    const { data: p, error: errorP } = await supabase
+        .from("produtos")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
+
+    const { data: l, error: errorL } = await supabase
+        .from("lojas")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+    if (errorP || errorL) {
+        setMensagemErro("Erro ao carregar dados do servidor.");
+        setExibirModalErro(true);
+        return;
+    }
+
+    if (p) setProdutos(p);
+    if (l) setDadosLoja(l);
     }, [session]);
 
     useEffect(() => {
-        if (session) carregarDadosPainel();
+    if (session) carregarDadosPainel();
     }, [session, carregarDadosPainel]);
 
     // ==========================================
     // 3. HANDLERS
     // ==========================================
+
+     const dispararErro = (msg) => {
+    setMensagemErro(msg);
+    setExibirModalErro(true);
+    };
+    
     const copiarLinkVitrine = () => {
         if (!session?.user?.id) return;
         const link = `${window.location.origin}/vitrine?id=${session.user.id}`;
@@ -101,20 +125,27 @@ function App() {
         alert("Link copiado!");
     };
 
-    async function handleAuth() {
+   async function handleAuth() {
         if (!email || !senha) return;
         setStatusLogin("carregando");
         const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
         setTimeout(() => {
-            if (error) { setStatusLogin("ocioso"); setMensagemErro("Erro no login"); setExibirModalErro(true); }
+            if (error) { 
+                setStatusLogin("ocioso"); 
+                setMensagemErro("Email ou senha incorretos"); 
+                setExibirModalErro(true); 
+            }
             else { setStatusLogin("sucesso"); }
         }, 800);
-    }
+    } 
 
     async function subirFoto(arquivo) {
         const nomeArquivo = `${Date.now()}_${arquivo.name}`;
         const { error } = await supabase.storage.from("fotos_produtos").upload(nomeArquivo, arquivo);
-        if (error) return null;
+        if (error) {
+            dispararErro("Não foi possível enviar a foto. Verifique o tamanho ou formato.");
+            return null;
+        }
         const { data } = supabase.storage.from("fotos_produtos").getPublicUrl(nomeArquivo);
         return data.publicUrl;
     }
@@ -131,6 +162,11 @@ function App() {
         const { error } = idEditando 
             ? await supabase.from("produtos").update(dados).eq("id", idEditando) 
             : await supabase.from("produtos").insert([dados]);
+            if (error) {
+            dispararErro("Erro ao salvar o produto no banco de dados.");
+            setSalvandoProduto(false);
+            return;
+        }
 
         setTimeout(() => {
             if (!error) {
@@ -159,7 +195,12 @@ function App() {
         const qtd = parseInt(quantidadeVenda);
         const novoEstoque = produtoParaVender.estoque - qtd;
         const { error } = await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", produtoParaVender.id);
-        if (!error) { setExibirModalVenda(false); carregarDadosPainel(); }
+        if (error) {
+        dispararErro("Não foi possível registrar a venda.");
+        } else {
+            setExibirModalVenda(false); 
+            carregarDadosPainel();
+        }
     }
 
     async function confirmarEstorno() {
@@ -171,33 +212,64 @@ function App() {
 
     async function excluirProduto() {
         const { error } = await supabase.from("produtos").delete().eq("id", produtoParaExcluir.id);
-        if (!error) { setExibirModalExcluir(false); carregarDadosPainel(); }
+       if (error) {
+        dispararErro("Erro ao excluir o produto. Tente novamente.");
+    } else {
+        setExibirModalExcluir(false); 
+        carregarDadosPainel();
+    }
     }
 
     // ==========================================
     // 4. FILTROS E RENDER
     // ==========================================
     const produtosFiltrados = produtos.filter(p => {
-        const termo = busca.toLowerCase().trim();
-        if (!termo) return true;
-        const referencia = p.id.toString().slice(-6).toUpperCase();
-        return p.nome.toLowerCase().includes(termo) || referencia.includes(termo.toUpperCase());
+    const termo = busca.toLowerCase().trim();
+    if (!termo) return true;
+
+    // Pega os últimos 6 dígitos do ID como referência
+    const referencia = p.id.toString().slice(-6).toUpperCase();
+
+    // LÓGICA DA HASHTAG (#)
+    if (termo.startsWith('#')) {
+        const apenasNumero = termo.slice(1).toUpperCase(); // Remove o # e pega o resto
+        return referencia.includes(apenasNumero); // Busca APENAS na referência
+    }
+
+    // BUSCA PADRÃO (Nome ou Referência sem precisar de #)
+    return p.nome.toLowerCase().includes(termo) || referencia.includes(termo.toUpperCase());
     });
+
+   
     
     const totalPaginas = Math.ceil(produtosFiltrados.length / itensPorPagina);
     const produtosPaginados = produtosFiltrados.slice((paginaAtual-1)*itensPorPagina, paginaAtual*itensPorPagina);
 
     if (!session) return (
         <div className="container vh-100 d-flex justify-content-center align-items-center">
-            <div className="card p-4 shadow text-center" style={{maxWidth: '380px', width:'100%'}}>
-                <h4 className="fw-bold text-primary mb-4">Login</h4>
-                <input type="email" placeholder="E-mail" autoComplete="off" className="form-control mb-2" onChange={e => setEmail(e.target.value)} />
-                <input type="password" placeholder="Senha" autoComplete="new-password" className="form-control mb-4" onChange={e => setSenha(e.target.value)} />
-                <button className="btn btn-primary w-100 fw-bold" onClick={handleAuth} disabled={statusLogin === "carregando"}>
-                    {statusLogin === "carregando" ? <span className="spinner-border spinner-border-sm"></span> : "ENTRAR"}
-                </button>
-            </div>
+        <div className="card p-4 shadow text-center" style={{maxWidth: '380px', width:'100%'}}>
+            <h4 className="fw-bold text-primary mb-4">Login</h4>
+            <input type="email" placeholder="E-mail" autoComplete="off" className="form-control mb-2" onChange={e => setEmail(e.target.value)} />
+            <input type="password" placeholder="Senha" autoComplete="new-password" className="form-control mb-4" onChange={e => setSenha(e.target.value)} />
+            <button className="btn btn-primary w-100 fw-bold" onClick={handleAuth} disabled={statusLogin === "carregando"}>
+                {statusLogin === "carregando" ? <span className="spinner-border spinner-border-sm"></span> : "ENTRAR"}
+            </button>
         </div>
+
+        {/* MODAL DE ERRO ESPECÍFICO DO LOGIN */}
+        {exibirModalErro && (
+            <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:3000}}>
+                <div className="modal-dialog modal-sm modal-dialog-centered text-center">
+                    <div className="modal-content p-4 shadow-lg border-0">
+                        <div className="text-danger mb-2"><i className="bi bi-shield-lock-fill" style={{fontSize: '2rem'}}></i></div>
+                        <h6 className="fw-bold">Falha no Acesso</h6>
+                        <p className="text-muted small">{mensagemErro}</p>
+                        <button className="btn btn-danger btn-sm w-100" onClick={() => setExibirModalErro(false)}>TENTAR NOVAMENTE</button>
+                    </div>
+                </div>
+            </div>
+        )}
+    </div>
     );
 
    return (
@@ -282,7 +354,8 @@ function App() {
                         </div>
 
                         <div className="card p-3 shadow-sm border-0">
-                            <input type="text" placeholder="Buscar por Nome ou REF" className="form-control mb-3" onChange={e => setBusca(e.target.value)} />
+                            <input type="text" placeholder="Buscar por Nome ou #REF (ex: #A1B2)" className="form-control mb-3" 
+                            onChange={e => setBusca(e.target.value)} />
                             <div className="table-responsive">
                                 <table className="table table-hover align-middle text-center">
                                     <thead><tr><th>FOTO</th><th>NOME</th><th>PREÇO</th><th>QTD</th><th>AÇÕES</th></tr></thead>
@@ -351,7 +424,7 @@ function App() {
                 </div>
             </div>
 
-            {/* MODAIS (MANTIDOS SEM ALTERAÇÃO) */}
+            {/* MODAIS */}
             {exibirModalVenda && (
                 <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:2000}}>
                     <div className="modal-dialog modal-sm modal-dialog-centered text-center">
@@ -416,6 +489,27 @@ function App() {
                                     {produtoDetalhado?.descricao || "Sem descrição disponível."}
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* MODAL DE ERRO GLOBAL */}
+            {exibirModalErro && (
+                <div className="modal d-block bg-dark bg-opacity-50" style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', zIndex:3000}}>
+                    <div className="modal-dialog modal-sm modal-dialog-centered text-center">
+                        <div className="modal-content p-4 shadow-lg border-0">
+                            <div className="text-danger mb-3">
+                                {/* Ícone de erro do Bootstrap Icons */}
+                                <i className="bi bi-x-circle-fill" style={{fontSize: '3rem'}}></i>
+                            </div>
+                            <h5 className="fw-bold text-dark">Ops! Algo deu errado</h5>
+                            <p className="text-muted small mb-4">{mensagemErro}</p>
+                            <button 
+                                className="btn btn-danger w-100 fw-bold py-2" 
+                                onClick={() => setExibirModalErro(false)}
+                            >
+                                TENTAR NOVAMENTE
+                            </button>
                         </div>
                     </div>
                 </div>
